@@ -1,0 +1,23 @@
+name: Sync to S3
+# place in .github/workflows/sync.yml
+
+on:
+  push:
+    branches: [main]  # only trigger on pushes to main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest  # use a fresh Ubuntu runner
+
+    steps:
+      # Check out the full repo contents onto the runner
+      - uses: actions/checkout@v4
+
+      # Authenticate to AWS using OIDC (no long-lived keys needed)
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # Sync all repo files to S3, removing anything in S3 that's no longer in the repo
+      - run: aws s3 sync . s3://your-bucket-name --delete
