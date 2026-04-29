@@ -1,5 +1,5 @@
 # github-actions
-Github Actions for various tasks
+Github Actions for various tasks. Includes sample terraform for required IAM implementation.
 
 ## Project Structure
 
