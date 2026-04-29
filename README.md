@@ -7,7 +7,7 @@ Github Actions for various tasks. Includes sample terraform for required IAM imp
 
 **[terraform](actions/terraform/README.md)** is a simple single-job Terraform pipeline suited for individual use. Runs a format check and posts the plan as a PR comment on every push, then applies on merge to main.
 
-**[terraform-pipeline](actions/terraform-pipeline/README.md)** is a robust multi-job Terraform pipeline that adds parallel security scanning with Checkov, path-based triggers, pip caching, and comment search and replace to keep PR threads clean. Recommended for team use.
+**[terraform-pipeline](actions/terraform-pipeline/README.md)** is a more robust multi-job Terraform pipeline that adds parallel security scanning with Checkov, path-based triggers, pip caching, and comment search and replace to keep PR threads clean. Recommended for team use.
 
 ## Project Structure
 
