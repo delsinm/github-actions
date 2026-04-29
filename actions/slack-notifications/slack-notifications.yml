@@ -1,0 +1,119 @@
+name: Slack Notifications
+# place in .github/workflows/slack-notifications.yml
+#
+# Sends two types of Slack notifications:
+#   1. Commit notification — fires once per push to main
+#   2. Merge notification  — fires when a PR is merged to main
+#
+# Required GitHub Secrets:
+#   SLACK_COMMIT_WEBHOOK_URL  — Incoming Webhook URL for the commits channel
+#   SLACK_MERGE_WEBHOOK_URL   — Incoming Webhook URL for the merges channel
+#
+# To get a webhook URL for each channel:
+#   1. Go to https://api.slack.com/apps and create a new app
+#   2. Enable "Incoming Webhooks" and add a webhook to your chosen channel
+#   3. Copy the webhook URL into the appropriate GitHub Secret
+
+on:
+  push:
+    branches: [main]          # commit notification on every push to main
+  pull_request:
+    branches: [main]
+    types: [closed]           # merge notification when a PR targeting main is closed
+
+jobs:
+
+  # --------------------------------------------------------------------------
+  # Job 1: Commit Notification
+  # Fires on every push to main. Notifies the commits channel with the
+  # author, commit message, and a link to the commit on GitHub.
+  # --------------------------------------------------------------------------
+
+  notify_commit:
+    name: Notify Slack — Commit
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Send Commit Notification
+        run: |
+          curl -s -X POST "${{ secrets.SLACK_COMMIT_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": ":warning: New commit on *${{ github.repository }}*",
+              "attachments": [
+                {
+                  "color": "#36a64f",
+                  "fields": [
+                    {
+                      "title": "Author",
+                      "value": "${{ github.actor }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Branch",
+                      "value": "${{ github.ref_name }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Message",
+                      "value": "${{ github.event.head_commit.message }}",
+                      "short": false
+                    },
+                    {
+                      "title": "Commit",
+                      "value": "<${{ github.event.head_commit.url }}|${{ github.sha }}>",
+                      "short": false
+                    }
+                  ]
+                }
+              ]
+            }'
+
+  # --------------------------------------------------------------------------
+  # Job 2: Merge Notification
+  # Fires when a PR is merged to main (a closed PR where merged == true).
+  # Notifies the merges channel with the PR title, author, and a link to
+  # the PR on GitHub.
+  # --------------------------------------------------------------------------
+
+  notify_merge:
+    name: Notify Slack — Merge
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' && github.event.pull_request.merged == true
+
+    steps:
+      - name: Send Merge Notification
+        run: |
+          curl -s -X POST "${{ secrets.SLACK_MERGE_WEBHOOK_URL }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "text": ":rocket: PR merged into *${{ github.repository }}*",
+              "attachments": [
+                {
+                  "color": "#6f42c1",
+                  "fields": [
+                    {
+                      "title": "PR Title",
+                      "value": "<${{ github.event.pull_request.html_url }}|${{ github.event.pull_request.title }}>",
+                      "short": false
+                    },
+                    {
+                      "title": "Author",
+                      "value": "${{ github.actor }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Merged by",
+                      "value": "${{ github.event.pull_request.merged_by.login }}",
+                      "short": true
+                    },
+                    {
+                      "title": "Branch",
+                      "value": "${{ github.event.pull_request.head.ref }} → ${{ github.event.pull_request.base.ref }}",
+                      "short": false
+                    }
+                  ]
+                }
+              ]
+            }'

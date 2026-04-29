@@ -1,4 +1,5 @@
 # Github Actions Repository
+
 Github Actions for various tasks. Includes sample terraform for required IAM implementation in the terraform directory.
 
 ## Actions
@@ -9,6 +10,8 @@ Github Actions for various tasks. Includes sample terraform for required IAM imp
 
 **[terraform-pipeline](actions/terraform-pipeline/README.md)** is a more robust multi-job Terraform pipeline that adds parallel security scanning with Checkov, pip caching, and comment search and replace to keep PR threads clean. Recommended for team use.
 
+**[slack-notifications](actions/slack-notifications/README.md)** are GitHub actions to notify Slack on commit and merge. Use this as stand-alone code or add it to your existing GitHub actions(recommended).
+
 ## Project Structure
 
 ```
@@ -17,6 +20,7 @@ jira-dashboard/
 │   └── git-to-s3-sync                        # Syncs GitHub repo to S3 bucket
 │   └── terraform                             # Simple Terraform pipeline
 │   └── terraform-pipeline                    # Advanced Terraform pipeline
+│   └── slack-notifications                   # Slack notifications
 ├── terraform/
 │   ├── github_actions_role_variables.tf      # Terraform variables
 │   └── github_actions_role.tf                # Terraform IAM code
