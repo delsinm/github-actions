@@ -1,6 +1,6 @@
 # Github Actions Repository
 
-Github Actions for various tasks. Includes sample terraform for required IAM implementation in the terraform directory.
+Github Actions for various tasks. Includes sample terraform for required IAM implementation.
 
 ## Actions
 
