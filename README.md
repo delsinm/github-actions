@@ -10,5 +10,5 @@ jira-dashboard/
 │   └── terraform                             # Terraform helper functions
 ├── terraform/
 │   ├── github_actions_role_variables.tf      # Terraform variables for GitHub actions IAM role
-│   └── github_actions_role.tf                # Terraform code for IAM role for GitHub actions
+│   └── github_actions_role.tf                # Terraform code for GitHub actions IAM role
 ```
