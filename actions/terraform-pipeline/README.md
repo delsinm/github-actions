@@ -1,6 +1,6 @@
-# Terraform Pipeline
+# Advanced Terraform Pipeline
 
-This repository uses a GitHub Actions pipeline to automate the formatting, security scanning, and deployment of Terraform infrastructure to AWS.
+GitHub Actions pipeline to automate the formatting, security scanning, and deployment of Terraform infrastructure to AWS.
 
 ## Pipeline Overview
 
