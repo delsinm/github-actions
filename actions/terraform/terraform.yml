@@ -1,0 +1,85 @@
+name: Terraform
+# place in .github/workflows/terraform.yml
+
+on:
+  pull_request:
+    branches: [main]    # plan on PR
+  push:
+    branches: [main]    # apply on merge
+
+jobs:
+  terraform:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # required for OIDC
+      contents: read
+      pull-requests: write  # required to post plan as a PR comment
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Authenticate to AWS via OIDC
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      # Install Terraform
+      - uses: hashicorp/setup-terraform@v3
+
+      # Fail the workflow if any files are not formatted correctly
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+
+      # If terraform fmt fails, post a comment to the PR
+      - name: Post Format Failure Comment
+        if: failure() && steps.fmt.outcome == 'failure' && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `#### Terraform Format Check Failed ❌
+              One or more files are not formatted correctly. Run the following locally to fix:
+              \`\`\`
+              terraform fmt -recursive
+              \`\`\``
+            });
+
+      # Initialise Terraform — downloads providers, connects to remote state
+      - name: Terraform Init
+        run: terraform init
+
+      # Validate the syntax and internal consistency of the configuration
+      - name: Terraform Validate
+        run: terraform validate
+
+      # On PRs — generate a plan and post it as a comment
+      - name: Terraform Plan
+        if: github.event_name == 'pull_request'
+        id: plan
+        run: terraform plan -no-color
+
+      - name: Post Plan as PR Comment
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `#### Terraform Plan 📖
+            \`\`\`
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\``;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      # On merge to main — apply the changes
+      - name: Terraform Apply
+        if: github.event_name == 'push'
+        run: terraform apply -auto-approve
