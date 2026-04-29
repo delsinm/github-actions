@@ -7,7 +7,7 @@ GitHub Actions pipeline to automatically sync repository contents to an AWS S3 b
 ```mermaid
 flowchart TD
     PUSH([PR Merged to main])
-    PUSH --> AUTH[Configure AWS Credentials<br/>OIDC]
+    PUSH --> AUTH[Get AWS Credentials<br/>OIDC]
     AUTH --> SYNC[aws s3 sync]
     SYNC --> DONE([S3 Updated])
 ```
