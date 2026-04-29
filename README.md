@@ -6,7 +6,7 @@ Github Actions for various tasks. Includes sample terraform for required IAM imp
 ```
 jira-dashboard/
 ├── actions/
-│   └── git-to-s3-sync                        # Syncs GitHub repo codebase to S3 bucket on commit
+│   └── git-to-s3-sync                        # Syncs GitHub repo to S3 bucket
 │   └── terraform                             # Simple Terraform pipeline; suitable for individual use
 │   └── terraform-pipeline                    # Robust Terraform pipeline that includes security scanning
 ├── terraform/
