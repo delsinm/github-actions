@@ -15,7 +15,7 @@ Github Actions for various tasks. Includes sample terraform for required IAM imp
 ## Project Structure
 
 ```
-jira-dashboard/
+github-actions/
 ├── actions/
 │   └── git-to-s3-sync                        # Syncs GitHub repo to S3 bucket
 │   └── terraform                             # Simple Terraform pipeline
