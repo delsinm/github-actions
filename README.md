@@ -5,9 +5,9 @@ Github Actions for various tasks. Includes sample terraform for required IAM imp
 
 **[git-to-s3-sync](actions/git-to-s3-sync/README.md)** syncs the repository contents to an S3 bucket on every merge to main. Skips documentation and workflow file changes so only meaningful code changes trigger a sync.
 
-**[terraform](actions/terraform/README.md)** is a simple single-job Terraform pipeline suited for individual use. Runs a format check and posts the plan as a PR comment on every push, then applies on merge to main.
+**[terraform](actions/terraform/README.md)** is a simple single-job Terraform pipeline suited for individual use. Runs a format check and posts the plan as a PR comment on every push, then applies on merge to main. Recommended for individual or lab use.
 
-**[terraform-pipeline](actions/terraform-pipeline/README.md)** is a more robust multi-job Terraform pipeline that adds parallel security scanning with Checkov, path-based triggers, pip caching, and comment search and replace to keep PR threads clean. Recommended for team use.
+**[terraform-pipeline](actions/terraform-pipeline/README.md)** is a more robust multi-job Terraform pipeline that adds parallel security scanning with Checkov, pip caching, and comment search and replace to keep PR threads clean. Recommended for team use.
 
 ## Project Structure
 
