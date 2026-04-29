@@ -4,6 +4,9 @@ name: Sync to S3
 on:
   push:
     branches: [main]  # only trigger on pushes to main
+    paths-ignore:
+      - '**.md'        # don't sync on documentation-only changes
+      - '.github/**'   # don't sync on changes to the workflow files themselves
 
 jobs:
   sync:
@@ -12,6 +15,9 @@ jobs:
     steps:
       # Check out the full repo contents onto the runner
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
 
       # Authenticate to AWS using OIDC (no long-lived keys needed)
       - uses: aws-actions/configure-aws-credentials@v4
@@ -20,4 +26,4 @@ jobs:
           aws-region: us-east-1
 
       # Sync all repo files to S3, removing anything in S3 that's no longer in the repo
-      - run: aws s3 sync . s3://your-bucket-name --delete
+      - run: aws s3 sync . s3://your-bucket-name --delete --exclude ".git/*"
