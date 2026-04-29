@@ -52,7 +52,7 @@ The pipeline runs on changes to the following file types:
 The pipeline authenticates to AWS using OIDC — no long-lived credentials are stored in GitHub. You will need to:
 
 1. Create a GitHub OIDC provider in your AWS account
-2. Create an IAM role with a trust policy scoped to this repository
+2. Create an IAM role with a trust policy scoped to your repository
 3. Store the role ARN in GitHub Secrets as `AWS_ROLE_ARN`
 
 ### Remote State
