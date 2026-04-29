@@ -1,0 +1,248 @@
+name: Terraform Pipeline
+# place in .github/workflows/terraform-pipeline.yml
+#
+# Pipeline overview:
+#   fmt      ──┐
+#              |──> plan ──> apply (on merge to main only)
+#   security ──┘
+#
+# fmt and security run in parallel. plan only runs if both pass.
+# apply only runs if plan passes and the event is a push to main.
+
+on:
+  pull_request:
+    branches: [main]    # run fmt, security, and plan on PRs
+    paths:
+      - '**.tf'                                           # any terraform file in any directory
+      - '**.tfvars'                                       # variable files
+      - '**.json'                                         # IAM policy JSON files
+      - '.github/workflows/terraform-pipeline.yml'        # changes to this workflow file itself
+  push:
+    branches: [main]    # run apply on merge to main
+    paths:
+      - '**.tf'
+      - '**.tfvars'
+      - '**.json'
+      - '.github/workflows/terraform-pipeline.yml'
+
+# ----------------------------------------------------------------------------
+# Shared permissions — applied to all jobs unless overridden at the job level.
+# ----------------------------------------------------------------------------
+
+permissions:
+  id-token: write       # required for OIDC authentication to AWS
+  contents: read        # required to check out the repository
+  pull-requests: write  # required to post comments on PRs
+
+# ----------------------------------------------------------------------------
+# Jobs
+# ----------------------------------------------------------------------------
+
+jobs:
+
+  # --------------------------------------------------------------------------
+  # Job 1: Format check
+  # Fails fast if any .tf files are not formatted correctly.
+  # --------------------------------------------------------------------------
+
+  fmt:
+    name: Terraform Format
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: hashicorp/setup-terraform@v3
+
+      # Check formatting — exits non-zero if any file needs reformatting.
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+
+      # If the format check failed, post a helpful comment on the PR.
+      - name: Find Existing Format Comment
+        if: failure() && steps.fmt.outcome == 'failure' && github.event_name == 'pull_request'
+        uses: peter-evans/find-comment@v3
+        id: find_fmt_comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: github-actions[bot]
+          body-includes: Terraform Format Check Failed
+
+      - name: Post or Update Format Failure Comment
+        if: failure() && steps.fmt.outcome == 'failure' && github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find_fmt_comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            #### Terraform Format Check Failed ❌
+            One or more files are not formatted correctly. Run the following locally to fix:
+            ```
+            terraform fmt -recursive
+            ```
+          edit-mode: replace
+
+  # --------------------------------------------------------------------------
+  # Job 2: Security scan
+  # Runs Checkov against all Terraform files to catch security and compliance
+  # issues before they reach AWS.
+  # --------------------------------------------------------------------------
+
+  security:
+    name: Terraform Security
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Get the current year and week number to use as a cache key component.
+      # This forces the cache to bust every Monday regardless of repo activity,
+      # ensuring Checkov is updated at least once a week.
+      - name: Get current week
+        id: date
+        run: echo "week=$(date +'%Y-%U')" >> $GITHUB_OUTPUT
+
+      # Cache the pip download directory so Checkov doesn't need to be
+      # re-downloaded on every run. The cache is stored at the repo level and
+      # shared across all PRs and branches.
+      - name: Cache pip downloads
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: checkov-${{ runner.os }}-${{ steps.date.outputs.week }}
+
+      # Install Checkov via pip — it is a Python-based static analysis tool.
+      - name: Install Checkov
+        run: pip install checkov
+
+      # Scan all Terraform files. --soft-fail means the step always exits 0
+      # so we control the failure ourselves after capturing the output.
+      - name: Run Checkov
+        id: checkov
+        continue-on-error: true
+        run: |
+          checkov \
+            --directory . \
+            --framework terraform json \
+            --output cli \
+            --output-file-path console \
+            --soft-fail \
+            2>&1 | tee checkov_output.txt
+
+          # Exit non-zero if Checkov found any failures so the job fails.
+          grep -q "Failed checks: 0" checkov_output.txt || exit 1
+
+      # If Checkov found issues, post or update a comment on the PR.
+      - name: Find Existing Checkov Comment
+        if: failure() && steps.checkov.outcome == 'failure' && github.event_name == 'pull_request'
+        uses: peter-evans/find-comment@v3
+        id: find_checkov_comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: github-actions[bot]
+          body-includes: Checkov Security Scan Failed
+
+      - name: Post or Update Checkov Failure Comment
+        if: failure() && steps.checkov.outcome == 'failure' && github.event_name == 'pull_request'
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find_checkov_comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            #### Checkov Security Scan Failed ❌
+            One or more security or compliance issues were found. See the [Actions log](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) for full details.
+            ```
+            ${{ steps.checkov.outputs.stdout }}
+            ```
+          edit-mode: replace
+
+  # --------------------------------------------------------------------------
+  # Job 3: Plan
+  # Runs terraform plan and posts the output as a PR comment.
+  # Only runs if both fmt and security pass.
+  # --------------------------------------------------------------------------
+
+  plan:
+    name: Terraform Plan
+    runs-on: ubuntu-latest
+    needs: [fmt, security]    # wait for both parallel jobs to succeed
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Authenticate to AWS via OIDC — needed to run terraform plan against
+      # real AWS resources and remote state.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+
+      # Initialise Terraform — downloads providers and connects to remote state.
+      - name: Terraform Init
+        run: terraform init
+
+      # Validate syntax and internal consistency before planning.
+      - name: Terraform Validate
+        run: terraform validate
+
+      # Generate the plan. -no-color keeps the output clean for PR comments.
+      - name: Terraform Plan
+        id: plan
+        run: terraform plan -no-color
+
+      # Find any existing plan comment from a previous push to this PR.
+      - name: Find Existing Plan Comment
+        uses: peter-evans/find-comment@v3
+        id: find_plan_comment
+        with:
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-author: github-actions[bot]
+          body-includes: Terraform Plan
+
+      # Create a new comment or update the existing one with the latest plan.
+      - name: Post or Update Plan Comment
+        uses: peter-evans/create-or-update-comment@v4
+        with:
+          comment-id: ${{ steps.find_plan_comment.outputs.comment-id }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body: |
+            #### Terraform Plan 📖
+            ```
+            ${{ steps.plan.outputs.stdout }}
+            ```
+          edit-mode: replace
+
+  # --------------------------------------------------------------------------
+  # Job 4: Apply
+  # Applies the Terraform changes after a merge to main.
+  # Only runs if the plan job passed (which itself requires fmt and security).
+  # --------------------------------------------------------------------------
+
+  apply:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    needs: [plan]             # only runs after a successful plan
+    if: github.event_name == 'push'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Authenticate to AWS via OIDC.
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - uses: hashicorp/setup-terraform@v3
+
+      # Initialise Terraform — required before apply even after a plan.
+      - name: Terraform Init
+        run: terraform init
+
+      # Apply all changes without prompting for confirmation.
+      - name: Terraform Apply
+        run: terraform apply -auto-approve
