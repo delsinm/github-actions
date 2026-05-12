@@ -2,7 +2,7 @@
 
 Github Actions for various tasks. 
 
-The terraform directory includes sample terraform for required IAM implementation required for the `terraform` and `terraform-pipeline` GitHub actions.
+The terraform directory includes sample terraform for the IAM implementation required for the `terraform` and `terraform-pipeline` GitHub actions.
 
 ## Actions
 
